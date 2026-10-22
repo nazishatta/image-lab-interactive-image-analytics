@@ -1,14 +1,6 @@
-# ImageLab — Interactive Image Analytics
+# ImageLab · Interactive Image Analytics
 
-Interactive Streamlit dashboard for investigating the scikit-learn handwritten-digits dataset (1,797 grayscale 8×8 images across ten labels).
-
-## Features
-
-- Labeled image montage with class and sample-count controls.
-- Normalized pixel-intensity histograms and cross-class comparison.
-- Occlusion-saliency inspection of held-out test examples using a 3×3 mask.
-- Individual image browser, channel-based image upload explorer, and processing comparisons.
-- Data-driven research insights and model diagnostics.
+A Streamlit dashboard exploring the scikit-learn handwritten digits dataset: image montages, grayscale intensity histograms, class comparisons, held-out logistic regression occlusion saliency, and image browser tools.
 
 ## Run locally
 
@@ -19,16 +11,14 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-Then open http://localhost:8501.
+## Methods
 
-## Deploy using Streamlit Community Cloud
+- Images: 1,797 grayscale 8 × 8 images, values 0–16.
+- Classifier: logistic regression; stratified 70/30 train/test split (seed 0).
+- Saliency: occlude overlapping 3×3 regions, then compute Δp = P(true class | original) − P(true class | occluded).
+- Positive Δp indicates masking lowers the true-class probability; negative Δp indicates masking raises it.
+- Limitations: occlusion maps are local sensitivity views, not proof of causal understanding; blanking already-zero pixels cannot reveal background reliance.
 
-Connect this repository at https://share.streamlit.io, select branch `main`, and choose `app.py` as the entry point. The deployment reads `requirements.txt` and `.streamlit/config.toml` automatically.
+## Acknowledgment
 
-## Methodology
-
-Image data come from `sklearn.datasets.load_digits`. The app uses a stratified 70%/30% training/test split with random seed 0 for logistic regression. Saliency visualizes local changes in the target-class probability after masking patches. The technique is a sensitivity diagnostic, not proof that the model reasons causally.
-
-## Academic transparency
-
-This coursework project uses AI-assisted application scaffolding, styling, and code review. The owner is responsible for independently reviewing the analyses, verifying functionality, and documenting their own interpretation as required by their course.
+Development involved AI assistance for app scaffolding, styling, debugging, and code review. Interpret scientific findings against observed figures and model outputs before submission.

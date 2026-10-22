@@ -11,7 +11,7 @@ from sklearn.datasets import load_digits
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 
-st.set_page_config(page_title="ImageLab Dropdown Fixed v7 | DATS 6401", page_icon="◈", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="ImageLab · Interactive Image Analytics", page_icon="◈", layout="wide", initial_sidebar_state="expanded")
 
 BG = "#101318"
 PANEL = "#191e26"
@@ -69,9 +69,10 @@ h1,h2,h3 {letter-spacing:-.035em;}
 .eyebrow {font-size:11px;color:#80c9bb;font-weight:800;letter-spacing:.15em;}
 .hero-title {font-size:37px;font-weight:760;letter-spacing:-.045em;margin:8px 0;line-height:1.12;color:#f6f8fa;}
 .hero-desc {color:#b9c3ce;font-size:15px;max-width:850px;line-height:1.65;}
-.section-caption {color:#9ea9b8;font-size:14px;margin-bottom:14px;}
+.section-caption {color:#c6d0db;font-size:15px;margin-bottom:14px;}
 .small-chip {display:inline-block;border:1px solid #3b5155;background:#1c3133;color:#aee6dc;border-radius:999px;padding:5px 12px;margin:8px 8px 0 0;font-size:12px;}
 [data-testid="stPlotlyChart"], [data-testid="stImage"] {border-radius:10px;}
+[data-testid="stCaptionContainer"] p {color:#c6d0db !important;font-size:0.92rem;}
 </style>''', unsafe_allow_html=True)
 
 plt.rcParams.update({
@@ -148,15 +149,22 @@ with t_montage:
     section("Collection explorer", "Compare handwriting styles within one labeled class. Look for variation, faint strokes and images that differ from most of their class.")
     count=montage_count
     ids=np.flatnonzero(digits.target==selected)
+    sample_mode = st.radio("Montage sample order", ["Dataset order", "Reproducible shuffle", "Most atypical first"], horizontal=True)
+    if sample_mode == "Reproducible shuffle":
+        ids = np.random.default_rng(42).permutation(ids)
+    elif sample_mode == "Most atypical first":
+        class_mean = digits.images[ids].mean(axis=0)
+        distance = np.linalg.norm((digits.images[ids] - class_mean).reshape(len(ids), -1), axis=1)
+        ids = ids[np.argsort(-distance)]
     fig, axes=plt.subplots(count//6,6,figsize=(11.3,(count//6)*1.53), facecolor=PANEL)
     for ax, idx in zip(np.asarray(axes).ravel(),ids[:count]):
         ax.imshow(digits.images[idx],cmap="gray",vmin=0,vmax=16,interpolation="nearest")
-        ax.set_title(f"ID {idx}",fontsize=9,color=MUTED,pad=3)
+        ax.set_title(f"ID {idx}",fontsize=11,color=FG,pad=4)
         ax.set_xticks([]);ax.set_yticks([])
         for spine in ax.spines.values():spine.set_visible(False)
     fig.subplots_adjust(left=.025,right=.99,top=.96,bottom=.04,wspace=.22,hspace=.42)
     render(fig)
-    st.caption("Figure 1. First selected class examples in dataset order; each tile uses the same grayscale scale (0–16). IDs refer to original dataset positions.")
+    st.caption("Figure 1. Selected examples follow the chosen ordering; all images share the 0–16 grayscale scale. IDs identify original dataset positions. Distance-based ordering is descriptive, not evidence of mislabeling.")
     with st.expander("Optional exploration · class balance and mean image",expanded=False):
         left,right=st.columns([1.6,1])
         with left:
@@ -181,21 +189,34 @@ with t_structure:
     pixels=digits.images[digits.target==selected].ravel()
     fig,ax=plt.subplots(figsize=(10,4.3))
     bins=np.arange(-.5,17.5,1)
-    ax.hist(pixels,bins=bins,density=True,alpha=.78,label=f"Digit {selected}",color=ACCENT)
+    ax.hist(pixels,bins=bins,density=True,histtype="step",linewidth=2.5,label=f"Digit {selected}",color=ACCENT)
     if compare:
         alt=digits.images[digits.target==other].ravel()
-        ax.hist(alt,bins=bins,density=True,alpha=.5,label=f"Digit {other}",color=ACCENT2)
+        ax.hist(alt,bins=bins,density=True,histtype="step",linewidth=2.5,label=f"Digit {other}",color=ACCENT2)
     ax.set_xlabel("Pixel intensity (0 = black; 16 = brightest)")
     ax.set_ylabel("Proportion of pixels per intensity value")
-    ax.set_xticks(range(17,2));ax.grid(axis="y",alpha=.28)
+    ax.set_xticks([0,4,8,12,16]);ax.tick_params(axis="both",labelsize=12,colors=FG);ax.grid(axis="y",alpha=.28)
     ax.legend(facecolor=PANEL,edgecolor="#424e5b",labelcolor=FG)
     ax.set_title("Grayscale intensity distribution",fontsize=15,pad=17)
     fig.tight_layout();render(fig)
     a,b,c=st.columns(3)
-    a.metric("Mean pixel intensity",f"{pixels.mean():.2f}")
-    b.metric("Black pixels (intensity 0)",f"{100*np.mean(pixels==0):.1f}%")
-    c.metric("Bright pixels (12–16)",f"{100*np.mean(pixels>=12):.1f}%")
-    st.caption("Figure 2. Histograms are density-normalized so class sample counts do not drive the height of the bars.")
+    a.metric(f"Digit {selected} · mean intensity",f"{pixels.mean():.2f}")
+    b.metric(f"Digit {selected} · black pixels",f"{100*np.mean(pixels==0):.1f}%")
+    c.metric(f"Digit {selected} · bright pixels (12–16)",f"{100*np.mean(pixels>=12):.1f}%")
+    st.caption("Figure 2. Class-normalized step histograms, on an integer intensity scale (0–16).")
+    if compare:
+        nonzero_a = pixels[pixels > 0]
+        nonzero_b = alt[alt > 0]
+        fig2, ax2 = plt.subplots(figsize=(10,3))
+        ax2.hist(nonzero_a, bins=np.arange(.5,17.5), density=True, histtype="step", linewidth=2.5, color=ACCENT, label=f"Digit {selected}")
+        ax2.hist(nonzero_b, bins=np.arange(.5,17.5), density=True, histtype="step", linewidth=2.5, color=ACCENT2, label=f"Digit {other}")
+        ax2.set_xticks([1,4,8,12,16]); ax2.tick_params(labelsize=11)
+        ax2.set_xlabel("Nonzero intensity (1–16)")
+        ax2.set_ylabel("Share among nonzero pixels")
+        ax2.set_title("Visible stroke intensities · background excluded")
+        ax2.legend(facecolor=PANEL,edgecolor="#424e5b",labelcolor=FG)
+        fig2.tight_layout();render(fig2)
+        st.caption(f"Comparison: digit {selected} has {100*np.mean(pixels==0):.1f}% zero pixels; digit {other} has {100*np.mean(alt==0):.1f}%. Excluding zero highlights stroke-intensity differences.")
 
 with t_sal:
     section("Occlusion saliency · held-out data", "A logistic regression model classifies digits. Hide a 3 × 3 patch, re-predict, and measure the probability change for the true class.")
@@ -216,20 +237,27 @@ with t_sal:
     limit=max(float(np.max(np.abs(sal))),1e-6)
     hm=axes[1].imshow(sal,cmap="coolwarm",vmin=-limit,vmax=limit,interpolation="nearest")
     axes[1].set_title("02 · Signed probability change",fontsize=12)
-    cb=fig.colorbar(hm,ax=axes[1],fraction=.045,pad=.03);cb.ax.tick_params(labelsize=8,colors=MUTED)
+    cb=fig.colorbar(hm,ax=axes[1],fraction=.045,pad=.03);cb.ax.tick_params(labelsize=11,colors=FG)
     axes[2].imshow(image,cmap="gray",vmin=0,vmax=16,interpolation="nearest")
     axes[2].imshow(np.maximum(sal,0),cmap="inferno",vmin=0,vmax=max(float(sal.max()),1e-6),alpha=.65,interpolation="nearest")
     axes[2].set_title("03 · Positive-drop overlay",fontsize=12)
     for ax in axes:ax.set_xticks([]);ax.set_yticks([])
     fig.tight_layout(w_pad=2);render(fig)
-    st.caption("Figure 3. Red regions indicate that masking increases evidence for the true class (a probability drop); blue regions indicate probability increases when masked. The right overlay highlights positive drops with inferno.")
+    st.caption("Figure 3. Red indicates that masking lowers the true-class probability; blue indicates that masking raises it. The right overlay highlights positive drops (inferno). Δp = P(true class | original) − P(true class | occluded).")
+    positive = np.maximum(sal, 0)
+    peak_index = np.unravel_index(int(np.argmax(positive)), positive.shape)
+    peak_drop = float(positive[peak_index])
+    r, c = peak_index
+    location = ("upper" if r < 3 else "middle" if r < 5 else "lower") + "-" + ("left" if c < 3 else "center" if c < 5 else "right")
+    st.markdown(f"**Image-specific observation · ID {image_idx}:** Masking the 3 × 3 region centered near row {r + 1}, column {c + 1} ({location}) produces the largest positive drop in true-class probability: **{peak_drop:.3f}** (from {base:.3f} to {base-peak_drop:.3f}). Inspect the original image to judge whether the affected region contains a meaningful stroke.")
+    st.caption("Occlusion windows overlap, so this is a sensitive region rather than an isolated causal pixel. Edge patches are clipped.")
     if prediction!=selected:
         st.warning("This is a misclassified test image. The heatmap still shows sensitivity of the TRUE class probability, not necessarily the predicted class.")
     with st.expander("How this experiment is controlled"):
         st.write("Dataset split: 70% training / 30% held-out testing, stratified by class, random seed 0. Each occlusion blanks a 3 × 3 region (clipped at image edges). Model and split are cached. The same test image is used across all patches.")
 
 with t_browser:
-    section("Image browser · supporting exploration", "Explore individual digit statistics or upload your own image for channel and processing comparisons. Optional tools; the graded analysis uses the digits dataset above.")
+    section("Image browser · supporting exploration", "Explore individual digit statistics or upload your own image for channel and processing comparisons. Additional tools for exploring individual samples and uploaded images.")
     b1,b2=st.tabs(["Single digit", "Upload and compare"])
     with b1:
         image_ids=np.flatnonzero(digits.target==selected)
@@ -305,7 +333,7 @@ with t_findings:
 
     st.markdown("### 03 / Model sensitivity")
     st.write(f"A logistic-regression classifier achieves **{accuracy:.1%}** overall accuracy on a stratified held-out split and **{class_recall:.1%}** recall for digit {selected} on its held-out examples (**{len(selected_test)}** images).")
-    st.write("The saliency view applies a 3 × 3 zero-valued occlusion patch to a held-out image, one location at a time. Positive probability drops reveal regions that support the target prediction in this particular test.")
+    st.write("The saliency view applies a 3 × 3 zero-valued occlusion patch to a held-out image, one location at a time. Positive probability drops identify patches whose removal lowers the true-class probability for this test image.")
     st.caption("Interpretation boundary: occlusion indicates model sensitivity under this intervention, not causal understanding. Blanking an already-black region cannot reveal its effect; inspect potential dataset artifacts separately.")
 
     st.divider()
